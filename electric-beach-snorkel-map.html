@@ -17,8 +17,8 @@
   .live-badge { margin-left:auto; background:rgba(0,229,204,0.1); border:1px solid rgba(0,229,204,0.4); color:var(--aqua); font-size:0.68rem; font-weight:500; padding:4px 10px; border-radius:20px; display:flex; align-items:center; gap:6px; flex-shrink:0; }
   .live-dot { width:6px; height:6px; border-radius:50%; background:var(--aqua); animation:blink 1.5s ease-in-out infinite; }
   @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
-  .main { display:flex; flex:1; overflow:hidden; }
-  #map { flex:1; z-index:1; }
+  .main { display:flex; flex:1; overflow:hidden; min-height:0; }
+  #map { flex:1; min-width:0; height:100%; z-index:1; }
   .leaflet-control-zoom a { background:var(--panel) !important; color:var(--aqua) !important; border-color:rgba(0,229,204,0.2) !important; }
   .leaflet-control-zoom a:hover { background:rgba(0,229,204,0.15) !important; }
   .leaflet-control-attribution { background:rgba(6,22,38,0.75) !important; color:rgba(255,255,255,0.3) !important; font-size:9px !important; }
@@ -430,6 +430,8 @@ async function fetchConditions() {
 
 fetchConditions();
 setInterval(fetchConditions, REFRESH_MS);
+window.addEventListener('load', () => leafletMap.invalidateSize());
+setTimeout(() => leafletMap.invalidateSize(), 200);
 </script>
 </body>
 </html>
