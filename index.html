@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oahu Snorkel Map — Top 10 Spots</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root { --ocean:#0a1e2c; --aqua:#00e5cc; --coral:#ff6b4a; --warm:#ffb347; --panel:rgba(6,22,38,0.93); --text:#e8f4f8; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'DM Sans',sans-serif; background:var(--ocean); color:var(--text); height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+  header { background:var(--panel); border-bottom:1px solid rgba(0,229,204,0.2); padding:10px 20px; display:flex; align-items:center; gap:16px; z-index:1000; flex-shrink:0; }
+  header h1 { font-family:'Bebas Neue',sans-serif; font-size:1.5rem; letter-spacing:2px; color:var(--aqua); }
+  header p { font-size:0.72rem; color:rgba(232,244,248,0.45); font-weight:300; }
+  .live-badge { margin-left:auto; background:rgba(0,229,204,0.1); border:1px solid rgba(0,229,204,0.4); color:var(--aqua); font-size:0.68rem; font-weight:500; padding:4px 10px; border-radius:20px; display:flex; align-items:center; gap:6px; flex-shrink:0; }
+  .live-dot { width:6px; height:6px; border-radius:50%; background:var(--aqua); animation:blink 1.5s ease-in-out infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+  .main { display:flex; flex:1; overflow:hidden; min-height:0; }
+  #map { flex:1; min-width:0; height:100%; z-index:1; }
+  .leaflet-control-zoom a { background:var(--panel) !important; color:var(--aqua) !important; border-color:rgba(0,229,204,0.2) !important; }
+  .leaflet-control-zoom a:hover { background:rgba(0,229,204,0.15) !important; }
+  .leaflet-control-attribution { background:rgba(6,22,38,0.75) !important; color:rgba(255,255,255,0.3) !important; font-size:9px !important; }
+  .leaflet-control-attribution a { color:rgba(255,255,255,0.4) !important; }
+  .leaflet-popup-content-wrapper { background:var(--panel) !important; border:1px solid rgba(0,229,204,0.3) !important; border-radius:10px !important; color:var(--text) !important; box-shadow:0 8px 32px rgba(0,0,0,0.6) !important; }
+  .leaflet-popup-tip { background:var(--panel) !important; }
+  .leaflet-popup-content { margin:12px 16px !important; font-family:'DM Sans',sans-serif; min-width:200px; max-width:270px; }
+  .leaflet-popup-close-button { color:rgba(232,244,248,0.5) !important; top:8px !important; right:10px !important; }
+  .popup-title { font-family:'Bebas Neue',sans-serif; font-size:1rem; letter-spacing:1.5px; color:var(--aqua); margin-bottom:6px; }
+  .popup-body { font-size:0.74rem; line-height:1.55; color:rgba(232,244,248,0.7); font-weight:300; }
+  .popup-meta { font-size:0.67rem; color:rgba(0,229,204,0.6); margin-top:6px; }
+  .popup-tip { font-size:0.67rem; color:rgba(255,179,71,0.7); margin-top:5px; font-style:italic; }
+  .popup-badge { display:inline-block; margin-top:8px; font-size:0.62rem; padding:2px 8px; border-radius:10px; font-weight:500; }
+  .badge-easy { background:rgba(0,229,204,0.15); color:#00e5cc; border:1px solid rgba(0,229,204,0.35); }
+  .badge-med  { background:rgba(255,179,71,0.15); color:#ffb347; border:1px solid rgba(255,179,71,0.35); }
+  .badge-hard { background:rgba(255,68,68,0.15); color:#ff8080; border:1px solid rgba(255,68,68,0.35); }
+  .badge-info { background:rgba(180,180,255,0.15); color:#aaaaff; border:1px solid rgba(180,180,255,0.35); }
+  .sidebar { width:280px; background:var(--panel); border-left:1px solid rgba(0,229,204,0.12); display:flex; flex-direction:column; overflow:hidden; flex-shrink:0; z-index:1000; }
+  .sb { flex:1; overflow-y:auto; padding:14px; }
+  .sb::-webkit-scrollbar { width:3px; }
+  .sb::-webkit-scrollbar-thumb { background:rgba(0,229,204,0.25); border-radius:2px; }
+  .sec { font-family:'Bebas Neue',sans-serif; font-size:0.75rem; letter-spacing:2px; color:rgba(232,244,248,0.32); margin:14px 0 8px; }
+  .sec:first-child { margin-top:0; }
+  .cond-box { background:rgba(255,107,74,0.08); border:1px solid rgba(255,107,74,0.28); border-radius:8px; padding:10px 12px; margin-bottom:6px; transition:border-color 0.3s; }
+  .cond-box.loading { border-color:rgba(0,229,204,0.3); animation:pulse-border 1s ease-in-out infinite; }
+  @keyframes pulse-border { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .cond-box h4 { font-size:0.67rem; color:var(--coral); font-weight:500; letter-spacing:0.5px; margin-bottom:7px; display:flex; align-items:center; justify-content:space-between; }
+  .refresh-btn { background:rgba(0,229,204,0.12); border:1px solid rgba(0,229,204,0.3); color:var(--aqua); font-size:0.6rem; padding:2px 7px; border-radius:10px; cursor:pointer; font-family:'DM Sans',sans-serif; transition:all 0.2s; }
+  .refresh-btn:hover { background:rgba(0,229,204,0.22); }
+  .cr { display:flex; justify-content:space-between; font-size:0.67rem; margin-bottom:3px; align-items:baseline; gap:8px; }
+  .cl { color:rgba(232,244,248,0.42); flex-shrink:0; }
+  .cv { font-weight:500; text-align:right; font-size:0.67rem; }
+  .cv-bad  { color:var(--coral); font-weight:500; }
+  .cv-ok   { color:var(--warm); font-weight:500; }
+  .cv-good { color:#64dc64; font-weight:500; }
+  .updated { font-size:0.6rem; color:rgba(232,244,248,0.3); margin-top:8px; line-height:1.4; }
+  .loc-item { display:flex; align-items:flex-start; gap:9px; padding:9px 10px; border-radius:7px; margin-bottom:5px; border:1px solid rgba(255,255,255,0.06); background:rgba(255,255,255,0.03); cursor:pointer; transition:all 0.18s; }
+  .loc-item:hover { background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.13); }
+  .loc-item.active { background:rgba(0,229,204,0.07); border-color:rgba(0,229,204,0.28); }
+  .loc-num { font-family:'Bebas Neue',sans-serif; font-size:0.9rem; color:rgba(232,244,248,0.22); width:16px; flex-shrink:0; text-align:right; line-height:1.3; }
+  .loc-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; margin-top:5px; }
+  .loc-info { flex:1; min-width:0; }
+  .loc-name { font-size:0.74rem; font-weight:500; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .loc-desc { font-size:0.64rem; color:rgba(232,244,248,0.44); line-height:1.35; font-weight:300; }
+  .loc-tags { display:flex; gap:4px; margin-top:4px; flex-wrap:wrap; }
+  .tag { font-size:0.58rem; padding:1px 6px; border-radius:8px; font-weight:500; }
+  .tag-easy { background:rgba(0,229,204,0.12); color:#00e5cc; }
+  .tag-med  { background:rgba(255,179,71,0.12); color:#ffb347; }
+  .tag-hard { background:rgba(255,80,80,0.12); color:#ff8080; }
+  .tag-season { background:rgba(180,180,255,0.1); color:#aaaaff; }
+  .reset-btn { display:block; width:100%; background:rgba(0,229,204,0.08); border:1px solid rgba(0,229,204,0.22); color:var(--aqua); font-size:0.67rem; padding:7px 12px; border-radius:7px; cursor:pointer; font-family:'DM Sans',sans-serif; font-weight:500; transition:all 0.2s; text-align:center; margin-bottom:10px; }
+  .reset-btn:hover { background:rgba(0,229,204,0.16); }
+  .lr { display:flex; align-items:center; gap:8px; font-size:0.67rem; color:rgba(232,244,248,0.45); margin-bottom:4px; }
+  .ld { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .ll { width:22px; height:0; border-top:2px dashed; flex-shrink:0; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>&#127940; Oahu Snorkel Map &#8212; Top 10 Spots</h1>
+    <p>Click any location to zoom in &middot; Swim routes &amp; hotspots appear at close zoom</p>
+  </div>
+  <div class="live-badge"><div class="live-dot"></div> LIVE CONDITIONS</div>
+</header>
+<div class="main">
+  <div id="map"></div>
+  <div class="sidebar">
+    <div class="sb">
+      <div class="sec" style="margin-top:0">LIVE CONDITIONS</div>
+      <div class="cond-box loading" id="cond-box">
+        <h4>
+          <span>OAHU OCEAN &amp; WEATHER</span>
+          <button class="refresh-btn" onclick="fetchConditions()">&#8635; Refresh</button>
+        </h4>
+        <div class="cr"><span class="cl">Visibility</span><span class="cv" id="cond-visibility">Loading...</span></div>
+        <div class="cr"><span class="cl">Surf advisory</span><span class="cv" id="cond-surf">Loading...</span></div>
+        <div class="cr"><span class="cl">Currents</span><span class="cv" id="cond-currents">Loading...</span></div>
+        <div class="cr"><span class="cl">Weather</span><span class="cv" id="cond-weather">Loading...</span></div>
+        <div class="cr"><span class="cl">Tides</span><span class="cv" id="cond-tide">Loading...</span></div>
+        <div class="cr"><span class="cl">Snorkel rating</span><span class="cv" id="cond-snorkel">Loading...</span></div>
+        <div class="updated" id="last-updated">Fetching live data...</div>
+      </div>
+      <div class="sec">TOP 10 SPOTS &#8212; CLICK TO ZOOM</div>
+      <button class="reset-btn" onclick="resetView()">&#127758; View All Oahu</button>
+      <div id="loc-list"></div>
+      <div class="sec">LEGEND</div>
+      <div class="lr"><div class="ld" style="background:#00e5cc"></div> Easy / All levels</div>
+      <div class="lr"><div class="ld" style="background:#ffb347"></div> Intermediate</div>
+      <div class="lr"><div class="ld" style="background:#ff4444"></div> Advanced / Caution</div>
+      <div class="lr"><div class="ll" style="border-color:rgba(255,255,255,0.45)"></div> Recommended swim path</div>
+      <div class="lr"><div class="ll" style="border-color:#00e5cc"></div> Easy / sheltered route</div>
+      <div class="lr"><div class="ll" style="border-color:#ff6b4a"></div> Current / advanced route</div>
+    </div>
+  </div>
+</div>
+<script>
+// ── LOCATION DATA ──────────────────────────────────────
+const locations = [
+  { id:'hanauma',      num:1,  name:'Hanauma Bay',              emoji:'🐠', lat:21.2693,  lng:-157.6944, zoom:17, color:'#00e5cc', diffClass:'tag-easy', diffLabel:'All Levels',   season:'Year-round',   shortDesc:'Best marine preserve on Oahu — book online.', popup:`<div class="popup-title">🐠 Hanauma Bay Nature Preserve</div><div class="popup-body">Oahu's most iconic snorkel spot inside a protected marine sanctuary. Crystal-clear water with hundreds of tropical fish species, sea turtles, and pristine coral. Reservations required.</div><div class="popup-meta">📅 Year-round &nbsp;·&nbsp; 🐢 Turtles &nbsp;·&nbsp; 🐠 Reef fish &nbsp;·&nbsp; 🪸 Coral</div><div class="popup-tip">💡 Book 2 days in advance at honoluluparksandrecreation.com. $25 entry + $3 parking. Arrive early.</div><span class="popup-badge badge-easy">ALL LEVELS</span>` },
+  { id:'electric',     num:2,  name:'Electric Beach',           emoji:'⚡', lat:21.3540,  lng:-158.1322, zoom:18, color:'#ff4444', diffClass:'tag-med',  diffLabel:'Intermediate+',season:'Year-round',   shortDesc:'Warm pipes draw dolphins, turtles & fish schools.', popup:`<div class="popup-title">⚡ Electric Beach (Kahe Point)</div><div class="popup-body">Warm water discharge from the HECO plant draws massive fish schools, Hawaiian green sea turtles, spinner dolphins, and occasional reef sharks 50–70 yards offshore.</div><div class="popup-meta">📅 Year-round &nbsp;·&nbsp; 🐬 Dolphins &nbsp;·&nbsp; 🐢 Turtles &nbsp;·&nbsp; 🦈 Reef sharks</div><div class="popup-tip">⚠️ Never leave valuables in car — break-ins are extremely common. Go early morning.</div><span class="popup-badge badge-med">INTERMEDIATE+</span>` },
+  { id:'sharks-cove',  num:3,  name:'Sharks Cove',             emoji:'🦈', lat:21.6440,  lng:-158.0588, zoom:17, color:'#ffb347', diffClass:'tag-med',  diffLabel:'Intermediate', season:'May–Sep',      shortDesc:'North Shore gem — summer only, world-class reef.', popup:`<div class="popup-title">🦈 Sharks Cove (Pupukea)</div><div class="popup-body">North Shore's best snorkel spot. Rocky lava formations, tide pools, and a rich reef with incredible diversity — octopus, eels, Moorish idols, and more. Summer only.</div><div class="popup-meta">📅 Summer (May–Sep) &nbsp;·&nbsp; 🐙 Octopus &nbsp;·&nbsp; 🦑 Eels &nbsp;·&nbsp; 🪸 Lava formations</div><div class="popup-tip">⚠️ SUMMER ONLY. Rocky entry requires water shoes.</div><span class="popup-badge badge-med">INTERMEDIATE</span>` },
+  { id:'three-tables', num:4,  name:'Three Tables',            emoji:'🪸', lat:21.6399,  lng:-158.0652, zoom:17, color:'#64dc64', diffClass:'tag-easy', diffLabel:'Easier',       season:'May–Sep',      shortDesc:'Calmer North Shore neighbor to Sharks Cove.', popup:`<div class="popup-title">🪸 Three Tables Beach</div><div class="popup-body">Named for three flat coral table formations at the surface. Calmer entry than Sharks Cove, with beautiful underwater lava arches and great reef fish. Summer only.</div><div class="popup-meta">📅 Summer (May–Sep) &nbsp;·&nbsp; 🐟 Reef fish &nbsp;·&nbsp; 🌊 Lava arches</div><div class="popup-tip">💡 Sandy entry. Great for intermediate snorkelers wanting North Shore reef.</div><span class="popup-badge badge-easy">EASIER (SUMMER ONLY)</span>` },
+  { id:'ko-olina',     num:5,  name:'Ko Olina Lagoons',        emoji:'🏨', lat:21.3336,  lng:-158.1246, zoom:17, color:'#aaaaff', diffClass:'tag-easy', diffLabel:'All Levels',   season:'Year-round',   shortDesc:'Calm, family-friendly lagoons near the resorts.', popup:`<div class="popup-title">🏨 Ko Olina Lagoons</div><div class="popup-body">Four sheltered man-made lagoons adjacent to Disney, Four Seasons, and Marriott resorts. Calm, crystal-clear water protected from ocean swells. Fish life is best along the rocky perimeter walls.</div><div class="popup-meta">📅 Year-round &nbsp;·&nbsp; 👨‍👩‍👧 Family-friendly &nbsp;·&nbsp; 🐟 Perimeter fish</div><div class="popup-tip">💡 Public access is free but parking fills fast. Snorkel the rocky edges.</div><span class="popup-badge badge-easy">ALL LEVELS</span>` },
+  { id:'lanikai',      num:6,  name:'Lanikai Beach',           emoji:'🌅', lat:21.3914,  lng:-157.7195, zoom:17, color:'#00e5cc', diffClass:'tag-easy', diffLabel:'All Levels',   season:'Year-round',   shortDesc:'Turquoise windward waters — turtles & Mokulua views.', popup:`<div class="popup-title">🌅 Lanikai Beach</div><div class="popup-body">One of Hawaii's most beautiful beaches — powdery white sand and turquoise water. Excellent turtle sightings. Snorkel toward the Mokulua Islands for best marine life.</div><div class="popup-meta">📅 Year-round &nbsp;·&nbsp; 🐢 Turtles &nbsp;·&nbsp; 🌊 Calm conditions</div><div class="popup-tip">💡 Arrive before 8am — street parking is very limited.</div><span class="popup-badge badge-easy">ALL LEVELS</span>` },
+  { id:'laniakea',     num:7,  name:'Laniakea (Turtle Beach)', emoji:'🐢', lat:21.6017,  lng:-158.1091, zoom:17, color:'#64dc64', diffClass:'tag-easy', diffLabel:'Easier',       season:'Year-round',   shortDesc:'Famous turtle beach — snorkel alongside them.', popup:`<div class="popup-title">🐢 Laniakea (Turtle) Beach</div><div class="popup-body">Famed for Hawaiian green sea turtles that rest on the beach. The rocky reef just offshore is their feeding ground — snorkeling puts you right alongside them.</div><div class="popup-meta">📅 Year-round &nbsp;·&nbsp; 🐢 Sea turtles &nbsp;·&nbsp; 🪸 Rocky reef</div><div class="popup-tip">⚠️ Federal law: stay 10 ft from turtles. Best in calm conditions.</div><span class="popup-badge badge-easy">EASIER</span>` },
+  { id:'kahana',       num:8,  name:'Kahana Bay',              emoji:'🌿', lat:21.5504,  lng:-157.8688, zoom:17, color:'#64dc64', diffClass:'tag-easy', diffLabel:'All Levels',   season:'Year-round',   shortDesc:'Peaceful windward bay with mountain backdrop.', popup:`<div class="popup-title">🌿 Kahana Bay</div><div class="popup-body">A sheltered crescent bay on the windward Kamehameha Highway, framed by dramatic green mountains. Calm, uncrowded, home to reef fish and turtles. Murky after rain.</div><div class="popup-meta">📅 Year-round &nbsp;·&nbsp; 🐢 Turtles &nbsp;·&nbsp; 🐟 Reef fish</div><div class="popup-tip">💡 Avoid after heavy rain — stream runoff clouds visibility.</div><span class="popup-badge badge-easy">ALL LEVELS</span>` },
+  { id:'magic-island', num:9,  name:'Magic Island / Ala Moana',emoji:'🌃', lat:21.2862,  lng:-157.8499, zoom:17, color:'#aaaaff', diffClass:'tag-easy', diffLabel:'All Levels',   season:'Year-round',   shortDesc:'Calm urban lagoon — convenient from Waikiki.', popup:`<div class="popup-title">🌃 Magic Island / Ala Moana</div><div class="popup-body">Sheltered lagoon minutes from Waikiki. Convenient urban snorkeling with decent reef fish along the rocky perimeter and occasional turtle visits.</div><div class="popup-meta">📅 Year-round &nbsp;·&nbsp; 🐟 Perimeter reef fish &nbsp;·&nbsp; 🏙️ Near Waikiki</div><div class="popup-tip">💡 Snorkel the rocky edges for most fish. Watch for paddleboarders.</div><span class="popup-badge badge-easy">ALL LEVELS</span>` },
+  { id:'waimea',       num:10, name:'Waimea Bay',              emoji:'🏄', lat:21.6425,  lng:-158.0652, zoom:17, color:'#ff4444', diffClass:'tag-hard', diffLabel:'Advanced',     season:'May–Sep ONLY', shortDesc:'World-famous big wave site — snorkel in summer only.', popup:`<div class="popup-title">🏄 Waimea Bay</div><div class="popup-body">World-famous for 30+ foot waves in winter, but transforms into a calm clear paradise in summer. Stunning rock formations, diverse reef, excellent fish life when flat.</div><div class="popup-meta">📅 Summer ONLY (May–Sep) &nbsp;·&nbsp; 🐟 Diverse reef fish &nbsp;·&nbsp; 🪨 Rock formations</div><div class="popup-tip">⚠️ NEVER enter in winter. Summer: still check surf reports before entering.</div><span class="popup-badge badge-hard">ADVANCED (SUMMER ONLY)</span>` }
+];
+
+// ── MAP INIT ───────────────────────────────────────────
+const leafletMap = L.map('map', { center:[21.47,-157.98], zoom:11, zoomControl:true });
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+  attribution:'Imagery &copy; Esri, Maxar, GeoEye, Earthstar Geographics', maxZoom:20
+}).addTo(leafletMap);
+
+// ── MAIN LOCATION MARKERS ─────────────────────────────
+function mkIcon(emoji, color, num) {
+  return L.divIcon({ className:'', html:`<div style="position:relative;width:36px;height:36px;"><div style="background:${color};width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 12px rgba(0,0,0,0.8);border:2px solid rgba(255,255,255,0.3);">${emoji}</div><div style="position:absolute;top:-6px;right:-4px;background:rgba(6,22,38,0.92);color:rgba(232,244,248,0.7);font-family:'Bebas Neue',sans-serif;font-size:9px;width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,0.2);line-height:1;">${num}</div></div>`, iconSize:[36,36], iconAnchor:[18,18], popupAnchor:[0,-20] });
+}
+locations.forEach(loc => {
+  loc.marker = L.marker([loc.lat, loc.lng], { icon: mkIcon(loc.emoji, loc.color, loc.num) })
+    .addTo(leafletMap).bindPopup(loc.popup, { maxWidth:300 });
+});
+
+// ── HOTSPOT ICON ──────────────────────────────────────
+function mkHotspot(emoji, label, color='rgba(0,229,204,0.9)') {
+  return L.divIcon({ className:'', html:`<div style="display:flex;flex-direction:column;align-items:center;"><div style="background:${color};width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;box-shadow:0 1px 8px rgba(0,0,0,0.75);border:1.5px solid rgba(255,255,255,0.28);">${emoji}</div><div style="background:rgba(6,22,38,0.88);color:rgba(232,244,248,0.85);font-size:8px;padding:1px 5px;border-radius:3px;margin-top:2px;white-space:nowrap;font-family:'DM Sans',sans-serif;font-weight:500;">${label}</div></div>`, iconSize:[80,36], iconAnchor:[40,11], popupAnchor:[0,-14] });
+}
+
+// ── ROUTE HELPERS ─────────────────────────────────────
+const R_MAIN  = { color:'rgba(255,255,255,0.55)', weight:1.8, dashArray:'8,5', interactive:false };
+const R_EASY  = { color:'rgba(0,229,204,0.5)',    weight:1.8, dashArray:'8,5', interactive:false };
+const R_MOD   = { color:'rgba(255,179,71,0.55)',  weight:1.8, dashArray:'6,5', interactive:false };
+const R_WARN  = { color:'rgba(255,107,74,0.65)',  weight:2,   dashArray:'5,4', interactive:false };
+
+function hs(lat, lng, emoji, label, color, popupHtml) {
+  return L.marker([lat, lng], { icon: mkHotspot(emoji, label, color) }).bindPopup(popupHtml, { maxWidth:260 });
+}
+function poly(coords, opts, popupHtml) {
+  const p = L.polygon(coords, opts);
+  if (popupHtml) p.bindPopup(popupHtml);
+  return p;
+}
+
+// ── LOCATION DETAIL LAYERS ────────────────────────────
+const locationDetails = {
+
+  hanauma: {
+    routes: [
+      L.polyline([[21.2700,-157.6944],[21.2688,-157.6942],[21.2675,-157.6940]], R_MAIN),
+      L.polyline([[21.2700,-157.6944],[21.2695,-157.6958],[21.2690,-157.6965]], R_EASY),
+      L.polyline([[21.2688,-157.6942],[21.2675,-157.6940],[21.2663,-157.6938]], R_MOD),
+      L.polyline([[21.2700,-157.6944],[21.2695,-157.6932],[21.2690,-157.6926]], R_WARN),
+    ],
+    hotspots: [
+      hs(21.2688,-157.6942,'🏊','The Keyhole','rgba(0,229,204,0.85)',`<div class="popup-title">🏊 The Keyhole</div><div class="popup-body">Sandy channel through the inner reef — the main passage to Back Reef. Follow the natural corridor for easiest navigation. Butterflyfish and parrotfish dense here.</div><div class="popup-meta">🐟 Parrotfish · Butterflyfish · Wrasse</div><div class="popup-tip">💡 Stay in the sandy channel — coral on the edges is fragile and sharp.</div>`),
+      hs(21.2673,-157.6939,'🐠','Back Reef','rgba(0,229,204,0.85)',`<div class="popup-title">🐠 Back Reef</div><div class="popup-body">Outer coral beyond the Keyhole. The richest fish density in the bay — large parrotfish, Moorish idols, eels in crevices, and frequent turtle sightings. Excellent visibility.</div><div class="popup-meta">🐢 Turtles · 🐡 Pufferfish · 🦎 Moray eels</div><div class="popup-tip">💡 Best fish variety on all of Oahu. Don't rush through the Keyhole.</div>`),
+      hs(21.2692,-157.6958,'🪸','West Reef','rgba(100,220,100,0.9)',`<div class="popup-title">🪸 West Reef</div><div class="popup-body">Calmer, shallower section of the bay. Ideal when Back Reef is crowded or choppy. Good coral coverage and frequent sightings of the humuhumunukunukuapua'a (Hawaii's state fish).</div><div class="popup-meta">🐟 Humuhumu · Surgeonfish · Triggerfish</div><div class="popup-tip">💡 Great choice for beginners or when the bay is busy.</div>`),
+      hs(21.2691,-157.6926,'⚠️',"Witch's Brew",'rgba(255,107,74,0.9)',`<div class="popup-title">⚠️ Witch's Brew</div><div class="popup-body">Turbulent surge channel on the east side of the bay. Strong water movement can push you onto lava rocks. Avoid unless seas are completely flat.</div><div class="popup-meta">⚠️ Surge hazard · Lava rock exposure</div><div class="popup-tip">⚠️ Stay well away from this area unless you have significant ocean experience.</div>`),
+    ]
+  },
+
+  electric: {
+    zones: [
+      poly([[21.3528,-158.1307],[21.3533,-158.1300],[21.3537,-158.1303],[21.3534,-158.1311]], {color:'#64dc64',fillColor:'#64dc64',fillOpacity:0.25,weight:2,dashArray:'6,4'}, `<div class="popup-title">🏕️ Entry Beach</div><div class="popup-body">Sandy beach entry ~50m from parking. Cross the railroad tracks heading north. Time entry between wave sets. Rocky underfoot on exit.</div><span class="popup-badge badge-easy">ALL LEVELS (with caution)</span>`),
+      poly([[21.3554,-158.1348],[21.3562,-158.1332],[21.3571,-158.1338],[21.3575,-158.1355],[21.3564,-158.1364],[21.3554,-158.1360]], {color:'#ff4444',fillColor:'#ff4444',fillOpacity:0.22,weight:2,dashArray:'6,4'}, `<div class="popup-title">🔥 Warm Discharge Pipes</div><div class="popup-body">The main attraction. 50–70 yard swim offshore. Warm outflow draws fish schools, turtles, dolphins, and occasional reef sharks. Stay aware of snorkel tour boats.</div><span class="popup-badge badge-med">INTERMEDIATE+</span>`),
+      poly([[21.3520,-158.1310],[21.3528,-158.1305],[21.3534,-158.1311],[21.3530,-158.1324],[21.3518,-158.1321]], {color:'#00e5cc',fillColor:'#00e5cc',fillOpacity:0.2,weight:2,dashArray:'6,4'}, `<div class="popup-title">🐢 South Reef</div><div class="popup-body">Swim south from entry along the reef. Better coral, frequent turtle sightings, more sheltered from currents.<br><strong style="color:#00e5cc">Best option in rough conditions.</strong></div><span class="popup-badge badge-easy">EASIER</span>`),
+      poly([[21.3547,-158.1317],[21.3556,-158.1308],[21.3563,-158.1315],[21.3560,-158.1330],[21.3549,-158.1332]], {color:'#ffb347',fillColor:'#ffb347',fillOpacity:0.2,weight:2,dashArray:'6,4'}, `<div class="popup-title">🐡 North Reef</div><div class="popup-body">Rich fish life and reef topography. Currents significantly stronger here.<br><strong style="color:#ff8080">Avoid in high surf conditions.</strong></div><span class="popup-badge badge-hard">ADVANCED</span>`),
+      poly([[21.3519,-158.1290],[21.3526,-158.1285],[21.3528,-158.1292],[21.3521,-158.1297]], {color:'#aaaaff',fillColor:'#aaaaff',fillOpacity:0.18,weight:1.5,dashArray:'4,4'}, `<div class="popup-title">🅿️ Parking</div><div class="popup-body">Free parking. High theft area — leave nothing in your car. Walk north across railroad tracks to the beach.</div><span class="popup-badge badge-info">FREE · 6AM–10PM</span>`),
+    ],
+    routes: [
+      L.polyline([[21.3531,-158.1306],[21.3540,-158.1316],[21.3550,-158.1330],[21.3562,-158.1348]], R_MAIN),
+      L.polyline([[21.3531,-158.1306],[21.3525,-158.1309],[21.3521,-158.1316]], R_EASY),
+      L.polyline([[21.3531,-158.1306],[21.3539,-158.1309],[21.3550,-158.1318],[21.3555,-158.1322]], R_MOD),
+      L.polyline([[21.3572,-158.1372],[21.3558,-158.1358],[21.3542,-158.1342]], { color:'rgba(255,107,74,0.65)', weight:2.5, dashArray:'5,4', interactive:false }).bindTooltip('Strong current direction',{sticky:true}),
+    ],
+    hotspots: [
+      hs(21.3562,-158.1350,'🔥','Warm Pipes','rgba(255,68,68,0.9)',`<div class="popup-title">🔥 Warm Water Discharge</div><div class="popup-body">The power plant outflow is warmest here — often 5–10°F warmer than surrounding water. This is what draws the marine life. Fish schools can number in the thousands.</div><div class="popup-meta">🐬 Spinner dolphins · 🐢 Green turtles · 🦈 Reef sharks</div><div class="popup-tip">💡 Dolphins visit most mornings. Sharks are curious but not aggressive — give them space.</div>`),
+      hs(21.3523,-158.1315,'🐢','Turtle Rest Area','rgba(0,229,204,0.85)',`<div class="popup-title">🐢 South Reef Turtle Resting Area</div><div class="popup-body">Hawaiian green sea turtles frequently rest on the reef shelf here. Approach slowly, stay horizontal, and enjoy the view — they're remarkably calm with patient snorkelers.</div><div class="popup-meta">🐢 Green sea turtles · 🪸 Coral shelf</div><div class="popup-tip">⚠️ Federal law: stay 10 ft from turtles. Never touch or chase them.</div>`),
+    ]
+  },
+
+  'sharks-cove': {
+    routes: [
+      L.polyline([[21.6432,-158.0583],[21.6440,-158.0593],[21.6448,-158.0603],[21.6445,-158.0583],[21.6438,-158.0572],[21.6432,-158.0583]], R_MAIN),
+      L.polyline([[21.6448,-158.0603],[21.6455,-158.0612]], R_MOD),
+      L.polyline([[21.6432,-158.0583],[21.6428,-158.0575],[21.6425,-158.0568]], R_EASY),
+    ],
+    hotspots: [
+      hs(21.6440,-158.0595,'🪸','Inner Cove','rgba(0,229,204,0.85)',`<div class="popup-title">🪸 Inner Cove</div><div class="popup-body">The protected rocky bowl — most sheltered part of the site. Good for warming up before venturing to the outer reef. Spotted pufferfish, sergeant fish, and small wrasse everywhere.</div><div class="popup-meta">🐡 Pufferfish · 🐟 Sergeant fish · 🔵 Wrasse</div>`),
+      hs(21.6448,-158.0600,'🌊','Outer Reef Wall','rgba(255,179,71,0.9)',`<div class="popup-title">🌊 Outer Reef Wall</div><div class="popup-body">Beyond the cove lip — richer diversity and larger fish. Moorish idols, butterflyfish, and the occasional octopus tucked into crevices. Watch for surge.</div><div class="popup-meta">🎏 Moorish idols · 🐙 Octopus · 🦈 Small sharks</div><div class="popup-tip">💡 Surge can be strong here even on calm days. Keep distance from the wall.</div>`),
+      hs(21.6453,-158.0610,'🌋','Lava Tubes','rgba(255,179,71,0.9)',`<div class="popup-title">🌋 Lava Tube Swim-Throughs</div><div class="popup-body">Series of lava formations with swim-through channels. Not true caves — good ambient light. Watch for moray eels and lobster tucked in the crevices. Advanced swimmers only.</div><div class="popup-meta">🦞 Lobster · 🦎 Moray eels · 🪸 Encrusting coral</div><div class="popup-tip">⚠️ Advanced only. Strong surge can be dangerous inside formations.</div>`),
+      hs(21.6426,-158.0573,'🌊','Tide Pools','rgba(100,220,100,0.9)',`<div class="popup-title">🌊 Tide Pools</div><div class="popup-body">Rocky intertidal pools on the south edge — great for exploring before or after snorkeling. Sea urchins, small fish, and hermit crabs. Snorkel-accessible at high tide.</div><div class="popup-meta">🦔 Sea urchins · 🦀 Hermit crabs · 🐟 Tide pool fish</div>`),
+    ]
+  },
+
+  'three-tables': {
+    routes: [
+      L.polyline([[21.6397,-158.0645],[21.6403,-158.0648],[21.6410,-158.0652],[21.6418,-158.0656]], R_MAIN),
+      L.polyline([[21.6410,-158.0652],[21.6415,-158.0662],[21.6418,-158.0656]], R_MOD),
+      L.polyline([[21.6397,-158.0645],[21.6392,-158.0638],[21.6388,-158.0632]], R_EASY),
+    ],
+    hotspots: [
+      hs(21.6403,-158.0648,'🪨','Table 1','rgba(100,220,100,0.9)',`<div class="popup-title">🪨 Table 1 (Inner)</div><div class="popup-body">Closest and shallowest of the three formations (~8 ft depth). Good for beginners. The flat reef top creates a natural fish nursery — triggerfish, wrasse, and juvenile reef fish everywhere.</div><div class="popup-meta">🐟 Triggerfish · Wrasse · Juvenile reef fish</div>`),
+      hs(21.6410,-158.0652,'🪨','Table 2','rgba(255,179,71,0.9)',`<div class="popup-title">🪨 Table 2 (Middle)</div><div class="popup-body">Best coral coverage of the three formations (~15 ft depth). Dense schools of small reef fish hover above the table edges. Look under the lip for resting fish.</div><div class="popup-meta">🪸 Best coral · 🐠 Dense fish schools</div>`),
+      hs(21.6418,-158.0656,'🪨','Table 3','rgba(255,179,71,0.9)',`<div class="popup-title">🪨 Table 3 (Outer)</div><div class="popup-body">Farthest and deepest table (~20 ft). Most exposed to ocean swells — only visit when conditions are flat. Largest fish, including parrotfish and goatfish, feed here.</div><div class="popup-meta">🐟 Largest fish · Parrotfish · Goatfish</div><div class="popup-tip">⚠️ Exposed location — check conditions before swimming this far out.</div>`),
+      hs(21.6413,-158.0660,'🌀','Underwater Arch','rgba(0,229,204,0.85)',`<div class="popup-title">🌀 Underwater Arch</div><div class="popup-body">Lava arch between Tables 2 and 3 at ~18 ft depth. Swim-through for confident snorkelers. Stunning in clear visibility — fish hang in the current at the arch opening.</div><div class="popup-meta">🌊 Lava arch · ~18 ft depth · Fish in current</div><div class="popup-tip">💡 Freedive or snorkel on the surface and peer down — still dramatic from above.</div>`),
+    ]
+  },
+
+  'ko-olina': {
+    routes: [
+      L.polyline([[21.3330,-158.1230],[21.3343,-158.1238],[21.3346,-158.1253],[21.3340,-158.1264],[21.3330,-158.1268]], R_MAIN),
+      L.polyline([[21.3330,-158.1230],[21.3317,-158.1238],[21.3314,-158.1253],[21.3320,-158.1264],[21.3330,-158.1268]], R_EASY),
+    ],
+    hotspots: [
+      hs(21.3343,-158.1252,'🪸','N Rocky Wall','rgba(0,229,204,0.85)',`<div class="popup-title">🪸 North Rocky Wall</div><div class="popup-body">Best fish concentration in the lagoon. Convict tang schools, Moorish idols, and parrotfish congregate along the rocks. Also the most likely turtle sighting area.</div><div class="popup-meta">🐟 Convict tang schools · 🐢 Turtles · 🎏 Moorish idols</div>`),
+      hs(21.3316,-158.1252,'🪸','S Rocky Wall','rgba(100,220,100,0.9)',`<div class="popup-title">🪸 South Rocky Wall</div><div class="popup-body">Less visited than the north wall — quieter and often better visibility. Good for spotting pufferfish and eels tucked into crevices along the lava rock face.</div><div class="popup-meta">🐡 Pufferfish · 🦎 Eels · Quieter section</div>`),
+      hs(21.3330,-158.1266,'🌊','Ocean Channel','rgba(255,179,71,0.9)',`<div class="popup-title">🌊 Ocean Channel Opening</div><div class="popup-body">Where the lagoon meets the open ocean. Water exchange here brings in larger, more diverse species that don't typically venture into the calmer lagoon interior. Some current possible.</div><div class="popup-meta">🐟 More species variety · Some current · Deeper water</div><div class="popup-tip">💡 Don't swim outside the lagoon opening — unprotected open ocean.</div>`),
+    ]
+  },
+
+  lanikai: {
+    routes: [
+      L.polyline([[21.3910,-157.7200],[21.3907,-157.7182],[21.3903,-157.7163],[21.3899,-157.7144]], R_MAIN),
+      L.polyline([[21.3910,-157.7200],[21.3920,-157.7196],[21.3930,-157.7192]], R_EASY),
+    ],
+    hotspots: [
+      hs(21.3908,-157.7183,'🐢','Turtle Feeding Area','rgba(0,229,204,0.85)',`<div class="popup-title">🐢 Near Shore Turtle Feeding Area</div><div class="popup-body">Shallow coral heads just off the beach. Hawaiian green sea turtles feed on algae growing on the reef in the mornings. Start snorkeling here before heading further out.</div><div class="popup-meta">🐢 Green turtles (mornings) · 🪸 Coral heads · 🐟 Butterflyfish</div><div class="popup-tip">💡 Best turtle activity before 10am when the water is calmest.</div>`),
+      hs(21.3903,-157.7163,'🪸','Mid Reef','rgba(255,179,71,0.9)',`<div class="popup-title">🪸 Mid Reef</div><div class="popup-body">Slightly deeper coral formations with better fish diversity. Parrotfish, surgeonfish, and schools of small reef fish. Eels visible in crevices. Visibility often 30+ feet here.</div><div class="popup-meta">🐟 Parrotfish · Surgeonfish · 🦎 Moray eels</div>`),
+      hs(21.3899,-157.7145,'🏝️','→ Mokulua Islands','rgba(255,179,71,0.9)',`<div class="popup-title">🏝️ Toward the Mokulua Islands</div><div class="popup-body">Head in this direction for increasingly rich reef. The Mokulua ("Twin Islands") are about 400m offshore — reef quality improves all the way out. Strong swimmers only for the full crossing.</div><div class="popup-meta">🌊 ~400m to islands · Rich reef en route · Strong swimmers</div><div class="popup-tip">⚠️ Watch for wind and current. The channel can have side-set currents.</div>`),
+    ]
+  },
+
+  laniakea: {
+    routes: [
+      L.polyline([[21.6016,-158.1090],[21.6022,-158.1083],[21.6028,-158.1077]], R_MAIN),
+      L.polyline([[21.6016,-158.1090],[21.6010,-158.1096],[21.6005,-158.1100]], R_EASY),
+    ],
+    hotspots: [
+      hs(21.6014,-158.1094,'🐢','Turtle Rest Rocks','rgba(0,229,204,0.85)',`<div class="popup-title">🐢 Turtle Resting Rocks</div><div class="popup-body">Hawaiian green sea turtles haul out and rest on these rocks — often 3 to 8 visible at once. The shallow reef around the rocks is prime snorkeling territory. Volunteer turtle monitors are usually present.</div><div class="popup-meta">🐢 Up to 8 turtles visible · Shallow reef · Volunteer monitors</div><div class="popup-tip">⚠️ Stay 10 ft from turtles (federal law). Never touch, ride, or block their path to the ocean.</div>`),
+      hs(21.6020,-158.1082,'🌿','Seaweed Flat','rgba(100,220,100,0.9)',`<div class="popup-title">🌿 Seaweed Feeding Flat</div><div class="popup-body">Shallow rocky shelf covered in limu (seaweed) — the turtles' primary food source. Watch turtles actively grazing here in the mornings. The best place to observe natural feeding behavior.</div><div class="popup-meta">🐢 Active turtle feeding · 🌿 Limu (seaweed) · Morning activity</div>`),
+      hs(21.6026,-158.1077,'🪸','N Reef Extension','rgba(255,179,71,0.9)',`<div class="popup-title">🪸 North Reef Extension</div><div class="popup-body">The reef continues north with better coral diversity away from the beach crowds. Parrotfish, surgeonfish, and occasional pufferfish. Deeper water with more dramatic formations.</div><div class="popup-meta">🐟 Parrotfish · 🐡 Pufferfish · Deeper reef</div>`),
+    ]
+  },
+
+  kahana: {
+    routes: [
+      L.polyline([[21.5502,-157.8685],[21.5492,-157.8674],[21.5482,-157.8663],[21.5473,-157.8652]], R_MAIN),
+      L.polyline([[21.5502,-157.8685],[21.5512,-157.8690],[21.5520,-157.8694]], R_WARN),
+    ],
+    hotspots: [
+      hs(21.5490,-157.8674,'🪸','South Reef Edge','rgba(0,229,204,0.85)',`<div class="popup-title">🪸 South Reef Edge</div><div class="popup-body">Follow the reef edge south for the best marine life in the bay. Triggerfish, parrotfish, and goatfish are common. Reef structure provides good habitat diversity.</div><div class="popup-meta">🐟 Triggerfish · Parrotfish · Goatfish</div><div class="popup-tip">💡 The reef drops off as you go south — some nice ledges to explore.</div>`),
+      hs(21.5495,-157.8672,'🐢','Seagrass Bed','rgba(100,220,100,0.9)',`<div class="popup-title">🐢 Seagrass Turtle Grazing Area</div><div class="popup-body">Seagrass beds between the reef and the sandy bottom. Hawaiian green sea turtles graze here, especially in the morning. Patient snorkelers often see 2–3 turtles.</div><div class="popup-meta">🐢 Turtles (morning) · 🌿 Seagrass bed</div>`),
+      hs(21.5513,-157.8689,'⚠️','Stream Mouth','rgba(255,107,74,0.9)',`<div class="popup-title">⚠️ Stream Mouth — Avoid After Rain</div><div class="popup-body">Kahana Stream empties into the bay here. After any rainfall, runoff dramatically clouds visibility in this area for 24–48 hours. Also worth avoiding for water quality reasons after heavy rain.</div><div class="popup-meta">⚠️ Murky after rain · Reduced visibility · Water quality concern</div><div class="popup-tip">💡 Swim south away from the stream mouth for the best conditions.</div>`),
+    ]
+  },
+
+  'magic-island': {
+    routes: [
+      L.polyline([[21.2870,-157.8505],[21.2860,-157.8491],[21.2850,-157.8500],[21.2848,-157.8516],[21.2858,-157.8527]], R_MAIN),
+      L.polyline([[21.2870,-157.8505],[21.2876,-157.8516],[21.2868,-157.8527]], R_EASY),
+    ],
+    hotspots: [
+      hs(21.2858,-157.8491,'🪸','E Rocky Wall','rgba(0,229,204,0.85)',`<div class="popup-title">🪸 East Rocky Wall</div><div class="popup-body">Best fish concentration in the lagoon. Dense schools of convict tang and sergeant fish hover along the rocky jetty. Pufferfish and eels tuck into crevices in the lava rock.</div><div class="popup-meta">🐟 Convict tang · Sergeant fish · 🐡 Pufferfish · 🦎 Eels</div>`),
+      hs(21.2849,-157.8510,'🪸','S Perimeter','rgba(100,220,100,0.9)',`<div class="popup-title">🪸 South Perimeter</div><div class="popup-body">Quieter stretch along the south side of the peninsula. Good for spotting pufferfish and resting turtles. Less boat traffic than the north/beach side.</div><div class="popup-meta">🐢 Turtles (occasional) · 🐡 Pufferfish · Quieter section</div>`),
+      hs(21.2858,-157.8526,'🌊','Channel Opening','rgba(255,179,71,0.9)',`<div class="popup-title">🌊 Lagoon Channel Opening</div><div class="popup-body">Where the lagoon exchanges water with the open ocean. More species variety here — larger fish and occasional angelfish venture in with the tide. Some current present at this end.</div><div class="popup-meta">🐟 More variety · 🌊 Some current · Deeper water</div><div class="popup-tip">⚠️ Don't swim outside the channel — open ocean beyond this point.</div>`),
+    ]
+  },
+
+  waimea: {
+    routes: [
+      L.polyline([[21.6420,-158.0650],[21.6428,-158.0638],[21.6434,-158.0624],[21.6440,-158.0612]], R_MAIN),
+      L.polyline([[21.6420,-158.0650],[21.6413,-158.0658],[21.6406,-158.0665]], R_EASY),
+    ],
+    hotspots: [
+      hs(21.6432,-158.0638,'🪨','Rock Jump','rgba(255,179,71,0.9)',`<div class="popup-title">🪨 Famous Rock Jump</div><div class="popup-body">The iconic 25-foot lava rock that locals and visitors jump from — summer only when the bay is flat. Look before leaping (check below is clear), and wait for wave sets to fully pass.</div><div class="popup-meta">🌊 25 ft jump · Check below · Summer only</div><div class="popup-tip">⚠️ People have been seriously injured here. Only jump if you're a strong swimmer and the water is completely calm.</div>`),
+      hs(21.6432,-158.0624,'🪸','Right Reef System','rgba(0,229,204,0.85)',`<div class="popup-title">🪸 Right Reef System</div><div class="popup-body">The main snorkeling area along the west/right edge of the bay. Excellent coral and fish diversity in summer. Large parrotfish, surgeonfish, and endemic Hawaiian species common here.</div><div class="popup-meta">🐟 Large parrotfish · Endemic species · Good coral</div>`),
+      hs(21.6440,-158.0612,'🌋','Deep Rock Formation','rgba(255,107,74,0.9)',`<div class="popup-title">🌋 Deep Rock Formations</div><div class="popup-body">Large boulders and lava formations at 20–30 ft depth at the mouth of the bay. The most dramatic underwater terrain at Waimea — rich in species. Advanced snorkelers (freedive) only.</div><div class="popup-meta">🪨 20–30 ft depth · Most dramatic terrain · Advanced</div><div class="popup-tip">⚠️ Farthest from shore — only when conditions are perfectly flat. Have a buddy.</div>`),
+    ]
+  }
+
+};
+
+// ── DETAIL LAYER MANAGEMENT ───────────────────────────
+let activeDetailId = null;
+let activeDetailLayers = [];
+
+function showLocationDetail(id) {
+  if (activeDetailId === id) return;
+  hideAllDetails();
+  activeDetailId = id;
+  const d = locationDetails[id];
+  if (!d) return;
+  [...(d.routes||[]), ...(d.zones||[]), ...(d.hotspots||[])].forEach(l => {
+    l.addTo(leafletMap);
+    activeDetailLayers.push(l);
+  });
+}
+
+function hideAllDetails() {
+  activeDetailLayers.forEach(l => leafletMap.removeLayer(l));
+  activeDetailLayers = [];
+  activeDetailId = null;
+}
+
+leafletMap.on('zoomend moveend', () => {
+  if (leafletMap.getZoom() < 16) { hideAllDetails(); return; }
+  const c = leafletMap.getCenter();
+  let nearest = null, minDist = Infinity;
+  locations.forEach(loc => {
+    const d = Math.hypot(c.lat - loc.lat, c.lng - loc.lng);
+    if (d < minDist) { minDist = d; nearest = loc; }
+  });
+  if (nearest && minDist < 0.018) showLocationDetail(nearest.id);
+  else hideAllDetails();
+});
+
+// ── SIDEBAR LOCATION LIST ─────────────────────────────
+const locList = document.getElementById('loc-list');
+locations.forEach(loc => {
+  const el = document.createElement('div');
+  el.className = 'loc-item';
+  el.id = 'loc-' + loc.id;
+  el.innerHTML = `<div class="loc-num">${loc.num}</div><div class="loc-dot" style="background:${loc.color}"></div><div class="loc-info"><div class="loc-name">${loc.emoji} ${loc.name}</div><div class="loc-desc">${loc.shortDesc}</div><div class="loc-tags"><span class="tag ${loc.diffClass}">${loc.diffLabel}</span><span class="tag tag-season">📅 ${loc.season}</span></div></div>`;
+  el.onclick = () => flyToLoc(loc);
+  locList.appendChild(el);
+});
+
+// ── FLY-TO ────────────────────────────────────────────
+let activeLocId = null;
+
+function flyToLoc(loc) {
+  if (activeLocId) { const p = document.getElementById('loc-'+activeLocId); if (p) p.classList.remove('active'); }
+  activeLocId = loc.id;
+  const el = document.getElementById('loc-'+loc.id);
+  if (el) el.classList.add('active');
+  leafletMap.flyTo([loc.lat, loc.lng], loc.zoom, { duration:1.4 });
+  setTimeout(() => { loc.marker.openPopup(); showLocationDetail(loc.id); }, 1500);
+}
+
+function resetView() {
+  if (activeLocId) { const p = document.getElementById('loc-'+activeLocId); if (p) p.classList.remove('active'); activeLocId = null; }
+  leafletMap.flyTo([21.47,-157.98], 11, { duration:1.4 });
+  hideAllDetails();
+}
+
+// ── LIVE CONDITIONS ───────────────────────────────────
+const REFRESH_MS = 20 * 60 * 1000;
+
+function setLoading() {
+  ['cond-visibility','cond-surf','cond-currents','cond-weather','cond-tide','cond-snorkel'].forEach(id => {
+    document.getElementById(id).textContent = 'Loading...';
+    document.getElementById(id).className = 'cv';
+  });
+  document.getElementById('last-updated').textContent = 'Fetching live data...';
+  document.getElementById('cond-box').className = 'cond-box loading';
+}
+
+function applyConditions(data) {
+  document.getElementById('cond-visibility').textContent = data.visibility || '--';
+  document.getElementById('cond-surf').textContent       = data.surf       || '--';
+  document.getElementById('cond-currents').textContent   = data.currents   || '--';
+  document.getElementById('cond-weather').textContent    = data.weather    || '--';
+  document.getElementById('cond-tide').textContent       = data.tide       || '--';
+  document.getElementById('cond-snorkel').textContent    = data.snorkel    || '--';
+  const surfEl = document.getElementById('cond-surf');
+  const surfLow = (data.surf||'').toLowerCase();
+  surfEl.className = surfLow.includes('advisory') || surfLow.includes('high') ? 'cv-bad' : 'cv-ok';
+  const snEl = document.getElementById('cond-snorkel');
+  const snLow = (data.snorkel||'').toLowerCase();
+  if (snLow.includes('good') || snLow.includes('excellent')) snEl.className = 'cv-good';
+  else if (snLow.includes('fair') || snLow.includes('marginal') || snLow.includes('ok')) snEl.className = 'cv-ok';
+  else snEl.className = 'cv-bad';
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
+  document.getElementById('last-updated').textContent = 'Updated ' + timeStr + ' HST — auto-refreshes every 20 min';
+  document.getElementById('cond-box').className = 'cond-box';
+}
+
+async function fetchConditions() {
+  setLoading();
+  try {
+    const today = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        tools:[{ type:'web_search_20250305', name:'web_search' }],
+        system:'You are an ocean conditions reporter for Oahu, Hawaii. Today is '+today+'. Search for the latest conditions for Oahu ocean and weather. Search NWS Honolulu, surf reports, and tide data. Respond ONLY with a JSON object, no markdown, no backticks. Use exactly this structure: {"visibility":"e.g. 15-25 ft","surf":"e.g. High Surf Advisory - 4-6 ft","currents":"e.g. Moderate - use caution","weather":"e.g. Partly cloudy, 83°F, E winds 10mph","tide":"e.g. Low 7:42am 0.4ft / High 2:15pm 2.1ft","snorkel":"e.g. Good - favorable conditions"}',
+        messages:[{ role:'user', content:'Get current ocean and weather conditions for Oahu Hawaii right now.' }]
+      })
+    });
+    const data = await res.json();
+    const textBlock = (data.content||[]).find(b => b.type==='text');
+    if (!textBlock) throw new Error('No text block');
+    const cleaned = textBlock.text.trim().replace(/^```json|^```|```$/gm,'').trim();
+    applyConditions(JSON.parse(cleaned));
+  } catch(err) {
+    console.error('Fetch failed:', err);
+    document.getElementById('last-updated').textContent = 'Update failed — click Refresh to retry';
+    document.getElementById('cond-box').className = 'cond-box';
+  }
+}
+
+fetchConditions();
+setInterval(fetchConditions, REFRESH_MS);
+window.addEventListener('load', () => leafletMap.invalidateSize());
+setTimeout(() => leafletMap.invalidateSize(), 200);
+</script>
+</body>
+</html>
