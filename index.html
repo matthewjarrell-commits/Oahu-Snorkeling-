@@ -387,7 +387,9 @@ function resetView() {
 }
 
 // ── LIVE CONDITIONS ───────────────────────────────────
-const API_KEY = ''; // paste your Anthropic key here: sk-ant-...
+const API_KEY = ''; // paste your NVIDIA key here: nvapi-...
+const NV_ENDPOINT = 'https://integrate.api.nvidia.com/v1/chat/completions';
+const NV_MODEL = 'meta/llama-3.1-70b-instruct';
 const REFRESH_MS = 20 * 60 * 1000;
 
 function clearRankings() {
@@ -456,25 +458,27 @@ async function fetchRankings(conditions) {
     const today = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
     const month = new Date().getMonth();
     const isSummer = month >= 4 && month <= 8;
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch(NV_ENDPOINT, {
       method: 'POST',
-      headers: { 'Content-Type':'application/json', 'x-api-key':API_KEY, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
+      headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+API_KEY },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: NV_MODEL,
         max_tokens: 900,
-        system: `You are an Oahu ocean safety expert. Today is ${today}. It is ${isSummer ? 'SUMMER — north shore spots are accessible' : 'NOT summer — north shore spots (Sharks Cove, Three Tables, Waimea Bay, Laniakea) are dangerous due to winter swells and must be ranked last and flagged dangerous'}.
+        messages: [
+          { role:'system', content:`You are an Oahu ocean safety expert. Today is ${today}. It is ${isSummer ? 'SUMMER — north shore spots are accessible' : 'NOT summer — north shore spots (Sharks Cove, Three Tables, Waimea Bay, Laniakea) are dangerous due to winter swells and must be ranked last and flagged dangerous'}.
 
 Rank all 10 Oahu snorkel spots from best (1) to worst (10) for TODAY based on the conditions provided. Flag any as dangerous that have: high surf advisory, strong currents, poor visibility, or are north-shore spots in non-summer months.
 
 Respond ONLY with valid JSON, no markdown, no explanation outside the JSON:
-{"rankings":[{"id":"hanauma","rank":1,"reason":"one concise sentence"},{"id":"electric","rank":2,"reason":"..."},{"id":"sharks-cove","rank":3,"reason":"..."},{"id":"three-tables","rank":4,"reason":"..."},{"id":"ko-olina","rank":5,"reason":"..."},{"id":"lanikai","rank":6,"reason":"..."},{"id":"laniakea","rank":7,"reason":"..."},{"id":"kahana","rank":8,"reason":"..."},{"id":"magic-island","rank":9,"reason":"..."},{"id":"waimea","rank":10,"reason":"..."}],"dangerous":["id1","id2"]}`,
-        messages: [{ role:'user', content:`Current Oahu conditions: ${JSON.stringify(conditions)}\n\nRank all 10 spots and list any dangerous ones.` }]
+{"rankings":[{"id":"hanauma","rank":1,"reason":"one concise sentence"},{"id":"electric","rank":2,"reason":"..."},{"id":"sharks-cove","rank":3,"reason":"..."},{"id":"three-tables","rank":4,"reason":"..."},{"id":"ko-olina","rank":5,"reason":"..."},{"id":"lanikai","rank":6,"reason":"..."},{"id":"laniakea","rank":7,"reason":"..."},{"id":"kahana","rank":8,"reason":"..."},{"id":"magic-island","rank":9,"reason":"..."},{"id":"waimea","rank":10,"reason":"..."}],"dangerous":["id1","id2"]}` },
+          { role:'user', content:`Current Oahu conditions: ${JSON.stringify(conditions)}\n\nRank all 10 spots and list any dangerous ones.` }
+        ]
       })
     });
     const data = await res.json();
-    const textBlock = (data.content||[]).find(b => b.type==='text');
-    if (!textBlock) throw new Error('No text block');
-    const cleaned = textBlock.text.trim().replace(/^```json|^```|```$/gm,'').trim();
+    const text = data.choices?.[0]?.message?.content || '';
+    if (!text) throw new Error('No content');
+    const cleaned = text.trim().replace(/^```json|^```|```$/gm,'').trim();
     applyRankings(JSON.parse(cleaned));
   } catch(err) {
     console.error('Rankings failed:', err);
@@ -517,21 +521,22 @@ async function fetchConditions() {
   setLoading();
   try {
     const today = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch(NV_ENDPOINT, {
       method:'POST',
-      headers:{ 'Content-Type':'application/json', 'x-api-key':API_KEY, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
+      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+API_KEY },
       body: JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:1000,
-        tools:[{ type:'web_search_20250305', name:'web_search' }],
-        system:'You are an ocean conditions reporter for Oahu, Hawaii. Today is '+today+'. Search for the latest conditions for Oahu ocean and weather. Search NWS Honolulu, surf reports, and tide data. Respond ONLY with a JSON object, no markdown, no backticks. Use exactly this structure: {"visibility":"e.g. 15-25 ft","surf":"e.g. High Surf Advisory - 4-6 ft","currents":"e.g. Moderate - use caution","weather":"e.g. Partly cloudy, 83°F, E winds 10mph","tide":"e.g. Low 7:42am 0.4ft / High 2:15pm 2.1ft","snorkel":"e.g. Good - favorable conditions"}',
-        messages:[{ role:'user', content:'Get current ocean and weather conditions for Oahu Hawaii right now.' }]
+        model: NV_MODEL,
+        max_tokens: 500,
+        messages:[
+          { role:'system', content:'You are an ocean conditions reporter for Oahu, Hawaii. Today is '+today+'. Based on typical seasonal patterns and your knowledge of Oahu ocean conditions, generate realistic current conditions. Respond ONLY with a JSON object, no markdown, no backticks, no extra text. Use exactly this structure: {"visibility":"e.g. 15-25 ft","surf":"e.g. High Surf Advisory - 4-6 ft","currents":"e.g. Moderate - use caution","weather":"e.g. Partly cloudy, 83°F, E winds 10mph","tide":"e.g. Low 7:42am 0.4ft / High 2:15pm 2.1ft","snorkel":"e.g. Good - favorable conditions"}' },
+          { role:'user', content:'Generate current ocean and weather conditions for Oahu Hawaii for today.' }
+        ]
       })
     });
     const data = await res.json();
-    const textBlock = (data.content||[]).find(b => b.type==='text');
-    if (!textBlock) throw new Error('No text block');
-    const cleaned = textBlock.text.trim().replace(/^```json|^```|```$/gm,'').trim();
+    const text = data.choices?.[0]?.message?.content || '';
+    if (!text) throw new Error('No content');
+    const cleaned = text.trim().replace(/^```json|^```|```$/gm,'').trim();
     applyConditions(JSON.parse(cleaned));
   } catch(err) {
     console.error('Fetch failed:', err);
