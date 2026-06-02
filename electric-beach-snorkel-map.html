@@ -74,6 +74,13 @@
   .lr { display:flex; align-items:center; gap:8px; font-size:0.67rem; color:rgba(232,244,248,0.45); margin-bottom:4px; }
   .ld { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
   .ll { width:22px; height:0; border-top:2px dashed; flex-shrink:0; }
+  .loc-num.rank-top { color:#00e5cc !important; font-size:1rem; }
+  .loc-num.rank-mid { color:#ffb347 !important; font-size:1rem; }
+  .loc-num.rank-bot { color:#ff8080 !important; font-size:1rem; }
+  .loc-item.loc-danger { border-color:rgba(255,68,68,0.4) !important; background:rgba(255,30,30,0.07) !important; }
+  .danger-strip { font-size:0.6rem; color:#ff4444; background:rgba(255,0,0,0.1); border:1px solid rgba(255,68,68,0.4); border-radius:4px; padding:3px 8px; margin-top:5px; font-weight:600; letter-spacing:0.4px; display:flex; align-items:center; gap:4px; }
+  .rank-reason { font-size:0.6rem; color:rgba(232,244,248,0.35); margin-top:3px; font-style:italic; line-height:1.3; }
+  @keyframes pulse-danger { 0%,100%{transform:scale(1);opacity:0.75} 50%{transform:scale(1.4);opacity:0} }
 </style>
 </head>
 <body>
@@ -140,6 +147,16 @@ L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/
 function mkIcon(emoji, color, num) {
   return L.divIcon({ className:'', html:`<div style="position:relative;width:36px;height:36px;"><div style="background:${color};width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 12px rgba(0,0,0,0.8);border:2px solid rgba(255,255,255,0.3);">${emoji}</div><div style="position:absolute;top:-6px;right:-4px;background:rgba(6,22,38,0.92);color:rgba(232,244,248,0.7);font-family:'Bebas Neue',sans-serif;font-size:9px;width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,0.2);line-height:1;">${num}</div></div>`, iconSize:[36,36], iconAnchor:[18,18], popupAnchor:[0,-20] });
 }
+function mkIconDanger(emoji, color, num) {
+  return L.divIcon({ className:'', html:`<div style="position:relative;width:36px;height:36px;"><div style="position:absolute;width:52px;height:52px;top:-8px;left:-8px;border-radius:50%;border:2px solid rgba(255,50,50,0.8);animation:pulse-danger 1.2s ease-in-out infinite;pointer-events:none;"></div><div style="background:${color};width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 12px rgba(0,0,0,0.8);border:2px solid rgba(255,120,120,0.7);">${emoji}</div><div style="position:absolute;top:-6px;right:-4px;background:rgba(180,0,0,0.92);color:#fff;font-family:'Bebas Neue',sans-serif;font-size:9px;width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;line-height:1;">!</div></div>`, iconSize:[36,36], iconAnchor:[18,18], popupAnchor:[0,-20] });
+}
+
+function setMarkerDanger(loc, isDangerous) {
+  if (loc.marker) leafletMap.removeLayer(loc.marker);
+  const icon = isDangerous ? mkIconDanger(loc.emoji, loc.color, loc.num) : mkIcon(loc.emoji, loc.color, loc.num);
+  loc.marker = L.marker([loc.lat, loc.lng], { icon }).addTo(leafletMap).bindPopup(loc.popup, { maxWidth:300 });
+}
+
 locations.forEach(loc => {
   loc.marker = L.marker([loc.lat, loc.lng], { icon: mkIcon(loc.emoji, loc.color, loc.num) })
     .addTo(leafletMap).bindPopup(loc.popup, { maxWidth:300 });
@@ -221,7 +238,7 @@ const locationDetails = {
     routes: [
       L.polyline([[21.6397,-158.0645],[21.6403,-158.0648],[21.6410,-158.0652],[21.6418,-158.0656]], R_MAIN),
       L.polyline([[21.6410,-158.0652],[21.6415,-158.0662],[21.6418,-158.0656]], R_MOD),
-      L.polyline([[21.6397,-158.0645],[21.6392,-158.0638],[21.6388,-158.0632]], R_EASY),
+      L.polyline([[21.6397,-158.0645],[21.6400,-158.0660],[21.6404,-158.0672]], R_EASY),
     ],
     hotspots: [
       hs(21.6403,-158.0648,'🪨','Table 1','rgba(100,220,100,0.9)',`<div class="popup-title">🪨 Table 1 (Inner)</div><div class="popup-body">Closest and shallowest of the three formations (~8 ft depth). Good for beginners. The flat reef top creates a natural fish nursery — triggerfish, wrasse, and juvenile reef fish everywhere.</div><div class="popup-meta">🐟 Triggerfish · Wrasse · Juvenile reef fish</div>`),
@@ -258,7 +275,7 @@ const locationDetails = {
   laniakea: {
     routes: [
       L.polyline([[21.6016,-158.1090],[21.6022,-158.1083],[21.6028,-158.1077]], R_MAIN),
-      L.polyline([[21.6016,-158.1090],[21.6010,-158.1096],[21.6005,-158.1100]], R_EASY),
+      L.polyline([[21.6016,-158.1090],[21.6011,-158.1095],[21.6009,-158.1098]], R_EASY),
     ],
     hotspots: [
       hs(21.6014,-158.1094,'🐢','Turtle Rest Rocks','rgba(0,229,204,0.85)',`<div class="popup-title">🐢 Turtle Resting Rocks</div><div class="popup-body">Hawaiian green sea turtles haul out and rest on these rocks — often 3 to 8 visible at once. The shallow reef around the rocks is prime snorkeling territory. Volunteer turtle monitors are usually present.</div><div class="popup-meta">🐢 Up to 8 turtles visible · Shallow reef · Volunteer monitors</div><div class="popup-tip">⚠️ Stay 10 ft from turtles (federal law). Never touch, ride, or block their path to the ocean.</div>`),
@@ -294,7 +311,7 @@ const locationDetails = {
   waimea: {
     routes: [
       L.polyline([[21.6420,-158.0650],[21.6428,-158.0638],[21.6434,-158.0624],[21.6440,-158.0612]], R_MAIN),
-      L.polyline([[21.6420,-158.0650],[21.6413,-158.0658],[21.6406,-158.0665]], R_EASY),
+      L.polyline([[21.6420,-158.0650],[21.6415,-158.0657],[21.6413,-158.0662]], R_EASY),
     ],
     hotspots: [
       hs(21.6432,-158.0638,'🪨','Rock Jump','rgba(255,179,71,0.9)',`<div class="popup-title">🪨 Famous Rock Jump</div><div class="popup-body">The iconic 25-foot lava rock that locals and visitors jump from — summer only when the bay is flat. Look before leaping (check below is clear), and wait for wave sets to fully pass.</div><div class="popup-meta">🌊 25 ft jump · Check below · Summer only</div><div class="popup-tip">⚠️ People have been seriously injured here. Only jump if you're a strong swimmer and the water is completely calm.</div>`),
@@ -369,7 +386,99 @@ function resetView() {
 }
 
 // ── LIVE CONDITIONS ───────────────────────────────────
+const API_KEY = ''; // paste your Anthropic key here: sk-ant-...
 const REFRESH_MS = 20 * 60 * 1000;
+
+function clearRankings() {
+  locations.forEach(loc => {
+    const el = document.getElementById('loc-' + loc.id);
+    if (!el) return;
+    const numEl = el.querySelector('.loc-num');
+    if (numEl) { numEl.textContent = loc.num; numEl.className = 'loc-num'; }
+    el.classList.remove('loc-danger');
+    const strip = el.querySelector('.danger-strip');
+    if (strip) strip.remove();
+    const reason = el.querySelector('.rank-reason');
+    if (reason) reason.remove();
+    setMarkerDanger(loc, false);
+  });
+}
+
+function applyRankings(data) {
+  const { rankings, dangerous = [] } = data;
+  const dangerSet = new Set(dangerous);
+
+  rankings.forEach(({ id, rank, reason }) => {
+    const el = document.getElementById('loc-' + id);
+    if (!el) return;
+    const numEl = el.querySelector('.loc-num');
+    if (numEl) {
+      numEl.textContent = '#' + rank;
+      numEl.className = 'loc-num ' + (rank <= 3 ? 'rank-top' : rank <= 7 ? 'rank-mid' : 'rank-bot');
+    }
+    const info = el.querySelector('.loc-info');
+    if (info) {
+      let rr = info.querySelector('.rank-reason');
+      if (!rr) { rr = document.createElement('div'); rr.className = 'rank-reason'; info.appendChild(rr); }
+      rr.textContent = reason;
+    }
+  });
+
+  dangerSet.forEach(id => {
+    const el = document.getElementById('loc-' + id);
+    if (!el) return;
+    el.classList.add('loc-danger');
+    const info = el.querySelector('.loc-info');
+    if (info && !info.querySelector('.danger-strip')) {
+      const strip = document.createElement('div');
+      strip.className = 'danger-strip';
+      strip.innerHTML = '⛔ DANGEROUS TODAY — DO NOT ENTER';
+      info.appendChild(strip);
+    }
+    const loc = locations.find(l => l.id === id);
+    if (loc) setMarkerDanger(loc, true);
+  });
+
+  // Re-sort sidebar by rank
+  const list = document.getElementById('loc-list');
+  const sorted = [...list.children].sort((a, b) => {
+    const ra = rankings.find(r => 'loc-' + r.id === a.id)?.rank ?? 99;
+    const rb = rankings.find(r => 'loc-' + r.id === b.id)?.rank ?? 99;
+    return ra - rb;
+  });
+  sorted.forEach(el => list.appendChild(el));
+}
+
+async function fetchRankings(conditions) {
+  if (!API_KEY) return;
+  try {
+    const today = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+    const month = new Date().getMonth();
+    const isSummer = month >= 4 && month <= 8;
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'x-api-key':API_KEY, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 900,
+        system: `You are an Oahu ocean safety expert. Today is ${today}. It is ${isSummer ? 'SUMMER — north shore spots are accessible' : 'NOT summer — north shore spots (Sharks Cove, Three Tables, Waimea Bay, Laniakea) are dangerous due to winter swells and must be ranked last and flagged dangerous'}.
+
+Rank all 10 Oahu snorkel spots from best (1) to worst (10) for TODAY based on the conditions provided. Flag any as dangerous that have: high surf advisory, strong currents, poor visibility, or are north-shore spots in non-summer months.
+
+Respond ONLY with valid JSON, no markdown, no explanation outside the JSON:
+{"rankings":[{"id":"hanauma","rank":1,"reason":"one concise sentence"},{"id":"electric","rank":2,"reason":"..."},{"id":"sharks-cove","rank":3,"reason":"..."},{"id":"three-tables","rank":4,"reason":"..."},{"id":"ko-olina","rank":5,"reason":"..."},{"id":"lanikai","rank":6,"reason":"..."},{"id":"laniakea","rank":7,"reason":"..."},{"id":"kahana","rank":8,"reason":"..."},{"id":"magic-island","rank":9,"reason":"..."},{"id":"waimea","rank":10,"reason":"..."}],"dangerous":["id1","id2"]}`,
+        messages: [{ role:'user', content:`Current Oahu conditions: ${JSON.stringify(conditions)}\n\nRank all 10 spots and list any dangerous ones.` }]
+      })
+    });
+    const data = await res.json();
+    const textBlock = (data.content||[]).find(b => b.type==='text');
+    if (!textBlock) throw new Error('No text block');
+    const cleaned = textBlock.text.trim().replace(/^```json|^```|```$/gm,'').trim();
+    applyRankings(JSON.parse(cleaned));
+  } catch(err) {
+    console.error('Rankings failed:', err);
+  }
+}
 
 function setLoading() {
   ['cond-visibility','cond-surf','cond-currents','cond-weather','cond-tide','cond-snorkel'].forEach(id => {
@@ -378,6 +487,7 @@ function setLoading() {
   });
   document.getElementById('last-updated').textContent = 'Fetching live data...';
   document.getElementById('cond-box').className = 'cond-box loading';
+  clearRankings();
 }
 
 function applyConditions(data) {
@@ -399,6 +509,7 @@ function applyConditions(data) {
   const timeStr = now.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
   document.getElementById('last-updated').textContent = 'Updated ' + timeStr + ' HST — auto-refreshes every 20 min';
   document.getElementById('cond-box').className = 'cond-box';
+  fetchRankings(data);
 }
 
 async function fetchConditions() {
@@ -407,7 +518,7 @@ async function fetchConditions() {
     const today = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method:'POST',
-      headers:{ 'Content-Type':'application/json' },
+      headers:{ 'Content-Type':'application/json', 'x-api-key':API_KEY, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
       body: JSON.stringify({
         model:'claude-sonnet-4-20250514',
         max_tokens:1000,
