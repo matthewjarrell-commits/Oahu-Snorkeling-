@@ -454,12 +454,15 @@ function applyRankings(data) {
 
 async function fetchRankings(conditions) {
   if (!API_KEY) return;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
   try {
     const today = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
     const month = new Date().getMonth();
     const isSummer = month >= 4 && month <= 8;
     const res = await fetch(NV_ENDPOINT, {
       method: 'POST',
+      signal: controller.signal,
       headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+API_KEY },
       body: JSON.stringify({
         model: NV_MODEL,
@@ -475,12 +478,14 @@ Respond ONLY with valid JSON, no markdown, no explanation outside the JSON:
         ]
       })
     });
+    clearTimeout(timeout);
     const data = await res.json();
     const text = data.choices?.[0]?.message?.content || '';
     if (!text) throw new Error('No content');
     const cleaned = text.trim().replace(/^```json|^```|```$/gm,'').trim();
     applyRankings(JSON.parse(cleaned));
   } catch(err) {
+    clearTimeout(timeout);
     console.error('Rankings failed:', err);
   }
 }
@@ -518,11 +523,22 @@ function applyConditions(data) {
 }
 
 async function fetchConditions() {
+  if (!API_KEY) {
+    document.getElementById('last-updated').textContent = 'Add API key to enable AI conditions';
+    document.getElementById('cond-box').className = 'cond-box';
+    ['cond-visibility','cond-surf','cond-currents','cond-weather','cond-tide','cond-snorkel'].forEach(id => {
+      document.getElementById(id).textContent = '--';
+    });
+    return;
+  }
   setLoading();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
   try {
     const today = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
     const res = await fetch(NV_ENDPOINT, {
       method:'POST',
+      signal: controller.signal,
       headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+API_KEY },
       body: JSON.stringify({
         model: NV_MODEL,
@@ -533,14 +549,17 @@ async function fetchConditions() {
         ]
       })
     });
+    clearTimeout(timeout);
     const data = await res.json();
     const text = data.choices?.[0]?.message?.content || '';
     if (!text) throw new Error('No content');
     const cleaned = text.trim().replace(/^```json|^```|```$/gm,'').trim();
     applyConditions(JSON.parse(cleaned));
   } catch(err) {
+    clearTimeout(timeout);
     console.error('Fetch failed:', err);
-    document.getElementById('last-updated').textContent = 'Update failed — click Refresh to retry';
+    const msg = err.name === 'AbortError' ? 'Request timed out — click Refresh to retry' : 'Update failed — click Refresh to retry';
+    document.getElementById('last-updated').textContent = msg;
     document.getElementById('cond-box').className = 'cond-box';
   }
 }
