@@ -1,1 +1,4 @@
 oahu-snorkel-map-LOCAL.html
+node_modules/
+package-lock.json
+package.json
